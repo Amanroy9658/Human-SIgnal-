@@ -34,17 +34,45 @@ export default function Home() {
   const me = players.find(p=>p.id===playerId);
   const isHost = !!me?.is_host;
 
-  useEffect(()=>{
-    if(!room?.code || !supabase) return;
-    const channel = supabase.channel(`room-${room.code}`)
-      .on("postgres_changes",{event:"*",schema:"public",table:"rooms",filter:`code=eq.${room.code}`},payload=>{
-        if(payload.new && "code" in payload.new) setRoom(payload.new as Room);
-      })
-      .on("postgres_changes",{event:"*",schema:"public",table:"players",filter:`room_code=eq.${room.code}`},()=>refreshPlayers(room.code))
-      .subscribe();
-    refreshPlayers(room.code);
-    return ()=>{ supabase.removeChannel(channel); };
-  },[room?.code]);
+  useEffect(() => {
+  const client = supabase;
+
+  if (!room?.code || !client) return;
+
+  const channel = client
+    .channel(`room-${room.code}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "rooms",
+        filter: `code=eq.${room.code}`
+      },
+      (payload) => {
+        if (payload.new && "code" in payload.new) {
+          setRoom(payload.new as Room);
+        }
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "players",
+        filter: `room_code=eq.${room.code}`
+      },
+      () => refreshPlayers(room.code)
+    )
+    .subscribe();
+
+  refreshPlayers(room.code);
+
+  return () => {
+    client.removeChannel(channel);
+  };
+}, [room?.code]);
 
   useEffect(()=>{
     if(room?.status==="playing" && room.question_id) {
